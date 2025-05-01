@@ -15,12 +15,30 @@
                 <label class="block text-sm font-semibold text-white mb-1">Price Range</label>
                 <div class="text-xs text-white mb-1">Min: ₹<span id="min-price-display">{{ request.args.get('min_price', 1000) }}</span></div>
                 <input type="range" name="min_price" id="min_price" min="1000" max="10000" step="100" 
-                       value="{{ request.args.get('min_price', 1000) }}" class="w-full accent-cyan-400">
-
+                    value="{{ request.args.get('min_price', 1000) }}" class="w-full accent-cyan-400">
+                    
                 <div class="text-xs text-white mt-2">Max: ₹<span id="max-price-display">{{ request.args.get('max_price', 10000) }}</span></div>
                 <input type="range" name="max_price" id="max_price" min="1000" max="10000" step="100" 
-                       value="{{ request.args.get('max_price', 10000) }}" class="w-full accent-cyan-400">
+                    value="{{ request.args.get('max_price', 10000) }}" class="w-full accent-cyan-400">
             </div>
+
+            <script>
+                // Get the elements for the range inputs and the price displays
+                const minPriceInput = document.getElementById('min_price');
+                const maxPriceInput = document.getElementById('max_price');
+                const minPriceDisplay = document.getElementById('min-price-display');
+                const maxPriceDisplay = document.getElementById('max-price-display');
+
+                // Update the displayed value when the min price range changes
+                minPriceInput.addEventListener('input', function() {
+                    minPriceDisplay.textContent = minPriceInput.value;
+                });
+
+                // Update the displayed value when the max price range changes
+                maxPriceInput.addEventListener('input', function() {
+                    maxPriceDisplay.textContent = maxPriceInput.value;
+                });
+            </script>
 
             <!-- Room Type -->
             <div>
@@ -45,14 +63,23 @@
 
         <!-- Search Inputs -->
         <div class="w-full lg:w-3/4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
-                <span class="text-cyan-300 mr-2">📅</span>
-                <input type="date" name="checkin" id="checkin" value="{{ request.args.get('checkin', '') }}" class="w-full focus:outline-none bg-transparent text-white" required />
+            <div class="flex flex-col">
+                <label for="checkin" class="text-cyan-300 mb-1">Check-in Date</label>
+                <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
+                    <span class="text-cyan-300 mr-2">📅</span>
+                    <input type="date" name="checkin" id="checkin" value="{{ request.args.get('checkin', '') }}" 
+                           class="w-full focus:outline-none bg-transparent text-white" required />
+                </div>
             </div>
-
-            <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
-                <span class="text-cyan-300 mr-2">📅</span>
-                <input type="date" name="checkout" id="checkout" value="{{ request.args.get('checkout', '') }}" class="w-full focus:outline-none bg-transparent text-white" required />
+        
+            <!-- Check-out Date -->
+            <div class="flex flex-col">
+                <label for="checkout" class="text-cyan-300 mb-1">Check-out Date</label>
+                <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
+                    <span class="text-cyan-300 mr-2">📅</span>
+                    <input type="date" name="checkout" id="checkout" value="{{ request.args.get('checkout', '') }}" 
+                           class="w-full focus:outline-none bg-transparent text-white" required />
+                </div>
             </div>
 
             <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10 md:col-span-2">
@@ -62,12 +89,12 @@
 
             <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
                 <span class="text-cyan-300 mr-2">👨‍👩‍👧</span>
-                <input type="number" name="adults" id="adults" placeholder="Adults" min="1" max="5" value="{{ request.args.get('adults', '') }}" class="w-full bg-transparent focus:outline-none text-white" required onchange="adjustRooms()" />
+                <input type="number" name="adults" id="adults" placeholder="Adults" min="1" value="{{ request.args.get('adults', '') }}" class="w-full bg-transparent focus:outline-none text-white" required onchange="adjustRooms()" />
             </div>
 
             <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
                 <span class="text-cyan-300 mr-2">👶</span>
-                <input type="number" name="children" placeholder="Children" min="0" max="5" value="{{ request.args.get('children', '') }}" class="w-full bg-transparent focus:outline-none text-white" />
+                <input type="number" name="children" placeholder="Children" min="0"  value="{{ request.args.get('children', '') }}" class="w-full bg-transparent focus:outline-none text-white" />
             </div>
 
             <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10 md:col-span-2">

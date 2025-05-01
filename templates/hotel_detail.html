@@ -104,13 +104,29 @@
 </style>
 
 <div class="hero-image">
-  <div class="hotel-card-overlay">
-    <div class="hotel-card">
+  <div class="hotel-card-overlay" style="background-image: url('{{ url_for('static', filename='images/' + hotel[1] + '.png') }}'); background-size: cover; background-position: center;">
+    <div class="hotel-card" >
       <h2>{{ hotel[1] }}</h2>
       <p>{{ hotel[2] }}</p>
       <h3>Rooms</h3>
       {% for room in rooms %}
       <div class="room-box">
+        <img 
+          src="{% if room[2] == 'AC' %}
+                  {{ url_for('static', filename='images/room1.png') }}
+                {% elif room[2] == 'Deluxe' %}
+                  {{ url_for('static', filename='images/room2.png') }}
+                {% elif room[2] == 'Standard' %}
+                  {{ url_for('static', filename='images/room3.png') }}
+                {% elif room[2] == 'Suite' %}
+                  {{ url_for('static', filename='images/room4.png') }}
+                {% elif room[2] == 'NON-AC' %}
+                  {{ url_for('static', filename='images/room4.png') }}
+                {% else %}
+                  {{ url_for('static', filename='images/default.png') }}
+                {% endif %}" 
+          alt="Room Image" 
+          style="width: 30%; height: 100px; border-radius: 8px; margin-bottom: 10px;">
         <p><strong>Type:</strong> {{ room[2] }} | <strong>Price:</strong> ₹{{ room[3] }}</p>
         {% if room[-1] > 0 %}
         <a href="{{ url_for('book_room', room_id=room[0]) }}{% for f in request.args.getlist('features') %}{% if loop.first %}?{% else %}&{% endif %}features={{ f }}{% endfor %}" class="book-button">

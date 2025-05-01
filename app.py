@@ -54,6 +54,13 @@ def index():
         flash("Total guests (adults + children) cannot exceed 5 per room.")
         return redirect(url_for('index'))
 
+    max_guests_per_room = 5
+    
+    if rooms is not None:
+        if total_guests >= (rooms * max_guests_per_room):
+            flash("Insufficient room capacity for the number of guests. Please select more rooms.")
+            return redirect(url_for('index'))
+            
     session['guest_count'] = total_guests
     session['adults'] = adults
     session['children'] = children

@@ -3,7 +3,7 @@ import mysql.connector
 
 def get_connection():
     try:
-        conn = mysql.connector.connect(
+        return mysql.connector.connect(
             host="hoteldb.cf6me2usaddu.ap-south-1.rds.amazonaws.com",
             user="admin",
             password="Muthupattan1403",

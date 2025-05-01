@@ -93,13 +93,47 @@
 </style>
 
 <div class="auth-container">
-  <form method="post" class="auth-form">
+  <form method="post" class="auth-form" onsubmit="return validateAge()">
     <h2>Sign Up</h2>
     <input type="text" name="username" placeholder="Username" required>
     <input type="email" name="email" placeholder="Email" required>
     <input type="password" name="password" placeholder="Password" required>
+    <label for="dob">Date of Birth</label>
+    <input type="date" id="dob" name="dob" required>
     <button type="submit">Register</button>
     <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
   </form>
 </div>
+
+<script>
+  function validateAge() {
+    const dobInput = document.getElementById('dob');
+    if (!dobInput.value) {
+      alert("Please enter your date of birth.");
+      return false;
+    }
+
+    const dob = new Date(dobInput.value);
+    const today = new Date();
+
+    // Calculate age
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    const dayDiff = today.getDate() - dob.getDate();
+
+    // Adjust age if birthday hasn't occurred this year
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+      age--;
+    }
+
+    // Check age restriction
+    if (age < 18) {
+      alert("You must be at least 18 years old to register.");
+      return false;
+    }
+
+    return true; // Allow form submission
+  }
+</script>
+
 {% endblock %}
