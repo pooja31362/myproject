@@ -6,6 +6,7 @@ from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime,date, timedelta
 from flask import flash, redirect, url_for
+from decimal import Decimal
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -168,7 +169,7 @@ def book_room(room_id):
         checkin = session.get('checkin')
         checkout = session.get('checkout')
         guest_count = session.get('guest_count', 1)
-        rooms_requested = session.get('rooms', 1)
+        rooms_requested = int(session.get('rooms', 1) or 1)
 
         try:
             checkin_date = datetime.strptime(checkin, "%Y-%m-%d")
@@ -185,7 +186,7 @@ def book_room(room_id):
             WHERE room_id = %s
             AND NOT (checkout <= %s OR checkin >= %s)
         """, (room_id, checkin, checkout))
-        booked_rooms = cursor.fetchone()[0] or 0
+        booked_rooms = int(cursor.fetchone()[0] or 0)
 
         if (booked_rooms + rooms_requested) > total_rooms:
             conn.close()
@@ -256,78 +257,66 @@ def invoice(booking_id):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT b.name, b.email, b.phone, b.guest_count,
-                b.checkin, b.checkout, b.govt_id, b.features,
-                r.price, h.name
+        SELECT b.name, b.email, b.phone, b.guest_count, b.checkin, b.checkout, 
+               b.govt_id, b.features, r.price, h.name, h.location
         FROM bookings b
         JOIN rooms r ON b.room_id = r.id
         JOIN hotels h ON r.hotel_id = h.id
         WHERE b.id = %s
-        """, (booking_id,))
-
+    """, (booking_id,))
     row = cursor.fetchone()
     conn.close()
 
     if not row:
         return "Booking not found", 404
 
-    # unpack the row
-    (name, email, phone, guests, checkin_str, checkout_str, govt_id, features, price_per_night, hotel_name) = row
+    (name, email, phone, guests, checkin, checkout, govt_id, features, price_per_night, hotel_name, location) = row
 
-    checkin_date = checkin_str
-    checkout_date = checkout_str
-    nights = (checkout_date - checkin_date).days
-    if nights < 1:
-        nights = 1
-
-    room_total = price_per_night * nights
-    meal_price_per_person_per_day = 1000
-    meal_total = guests * meal_price_per_person_per_day * nights
-
-    discount_percent = 0
+    nights = (checkout - checkin).days or 1
+    room_total = float(price_per_night) * nights
+    meal_total = float(guests) * 1000 * nights
+    discount = 0
     if nights > 7:
-        discount_percent = 10
+        discount = 0.1 * (room_total + meal_total)
     elif nights > 3:
-        discount_percent = 5
-
-    discount_amount = (float(room_total) + float(meal_total)) * discount_percent / 100
-    room_total = float(room_total)
-    meal_total = float(meal_total)
-    discount_amount = float(discount_amount)
-
-    subtotal = room_total + meal_total - discount_amount
+        discount = 0.05 * (room_total + meal_total)
+    
+    subtotal = room_total + meal_total - discount
     gst = subtotal * 0.18
     grand_total = subtotal + gst
+    
 
-    booking = {
+    booking_data = {
+        'booking_id': booking_id,
         'name': name,
         'email': email,
         'phone': phone,
         'guest_count': guests,
-        'checkin': checkin_str,
-        'checkout': checkout_str,
+        'checkin': checkin,
+        'checkout': checkout,
         'govt_id': govt_id,
-        'features': features,  
+        'features': features,
         'hotel_name': hotel_name,
-        'booking_id': booking_id
-    }
-
-    price = {
-        'nights': nights,
-        'price_per_night': float(price_per_night),
+        'location': location,
+        'rating': 4,  # static for now
         'room_total': room_total,
-        'meal_plan': 'Full-board',
         'meal_total': meal_total,
-        'discount': discount_amount,
+        'discount': discount,
         'gst': gst,
         'grand_total': grand_total
     }
+    price_data = {
+    'nights': nights,
+    'price_per_night': float(price_per_night),
+    'room_total': room_total,
+    'meal_plan': 'Full-board',
+    'meal_total': meal_total,
+    'discount': discount,
+    'gst': gst,
+    'grand_total': grand_total
+    }
 
-    return render_template('invoice.html', booking=booking, price=price)
-
-
-
-
+    return render_template("invoice.html", booking=booking_data, price=price_data)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -389,19 +378,54 @@ def booking_history():
     user_id = session['user_id']
     conn = get_connection()
     cursor = conn.cursor()
+
     cursor.execute("""
-        SELECT b.id, h.name, h.location, b.checkin, b.checkout, r.price
+        SELECT b.id, h.name, h.location, b.checkin, b.checkout, r.price, b.status
         FROM bookings b
         JOIN rooms r ON b.room_id = r.id
         JOIN hotels h ON r.hotel_id = h.id
         WHERE b.user_id = %s
         ORDER BY b.checkin DESC
     """, (user_id,))
-    history = cursor.fetchall()
-    conn.close()
 
-    # ✅ Pass 'timedelta' to template
-    return render_template('history.html', history=history, today=date.today(), timedelta=timedelta)
+    rows = cursor.fetchall()
+    history = []
+    today = date.today()
+
+    for row in rows:
+        booking_id, hotel_name, location, checkin, checkout, price, status = row
+        nights = (checkout - checkin).days
+        if nights < 1:
+            nights = 1
+
+        meal_price_per_person_per_day = Decimal(1000)
+        guest_count = 1  # default if not stored, or retrieve actual guest count if needed
+        room_total = price * nights
+        meal_total = guest_count * meal_price_per_person_per_day * nights
+
+        discount_percent = 0
+        if nights > 7:
+            discount_percent = 10
+        elif nights > 3:
+            discount_percent = 5
+
+        discount_amount = (room_total + meal_total) * Decimal(discount_percent) / Decimal(100)
+        subtotal = room_total + meal_total - discount_amount
+        gst = subtotal * Decimal('0.18')
+        grand_total = subtotal + gst
+
+        history.append({
+            'id': booking_id,
+            'hotel_name': hotel_name,
+            'location': location,
+            'checkin': checkin,
+            'checkout': checkout,
+            'price': round(grand_total, 2),
+            'status': status
+        })
+
+    conn.close()
+    return render_template('history.html', history=history, today=today, timedelta=timedelta)
 
 @app.route('/cancel/<int:booking_id>', methods=['POST'])
 def cancel_booking(booking_id):
@@ -422,9 +446,7 @@ def cancel_booking(booking_id):
         conn.close()
         return redirect(url_for('booking_history'))
 
-    checkin_date = booking[0]
-    booking_user_id = booking[1]
-    room_id = booking[2]
+    checkin_date, booking_user_id, room_id = booking
 
     if booking_user_id != session['user_id']:
         flash("You are not authorized to cancel this booking.")
@@ -436,20 +458,12 @@ def cancel_booking(booking_id):
         conn.close()
         return redirect(url_for('booking_history'))
 
-    # Delete co-customers
-    cursor.execute("DELETE FROM co_customers WHERE booking_id = %s", (booking_id,))
-
-    # Delete booking
-    cursor.execute("DELETE FROM bookings WHERE id = %s", (booking_id,))
-
-    # Optionally set room available (if your logic marks it unavailable)
-    cursor.execute("UPDATE rooms SET available = TRUE WHERE id = %s", (room_id,))
-
+    cursor.execute("UPDATE bookings SET status = 'Cancelled' WHERE id = %s", (booking_id,))
     conn.commit()
     conn.close()
 
-    flash("Booking cancelled successfully.")
+    flash("Booking marked as cancelled.")
     return redirect(url_for('booking_history'))
-    
+
 if __name__ == '__main__':
     app.run(debug=True)

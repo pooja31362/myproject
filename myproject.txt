@@ -1,0 +1,1433 @@
+db.py
+
+import mysql.connector
+
+def get_connection():
+    try:
+        return mysql.connector.connect(
+            host="hoteldb.cf6me2usaddu.ap-south-1.rds.amazonaws.com",
+            user="admin",
+            password="Muthupattan1403",
+            database="poojudb"
+        )
+        print("✅ Database connection successful")
+        return conn
+    except mysql.connector.Error as e:
+        print(f"❌ Database connection failed: {e}")
+        return None
+
+book.html
+{% extends "layout.html" %}
+{% block title %}Book Room{% endblock %}
+ 
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-900 to-blue-700 py-12 px-4 flex justify-center items-start">
+  <div class="w-full max-w-3xl bg-blue-800 bg-opacity-60 backdrop-blur-md shadow-2xl rounded-3xl p-8 space-y-6 text-white">
+ 
+    <h2 class="text-3xl font-bold text-white text-center mb-6">Guest Details</h2>
+ 
+    <form id="booking-form" method="post" class="space-y-5">
+      <input name="name" placeholder="Your Name" required class="w-full px-4 py-3 rounded-xl border border-blue-300 bg-blue-700 placeholder-blue-200 text-white focus:ring-2 focus:ring-cyan-400 shadow-inner">
+      <input name="email" placeholder="Your Email" type="email" required class="w-full px-4 py-3 rounded-xl border border-blue-300 bg-blue-700 placeholder-blue-200 text-white focus:ring-2 focus:ring-cyan-400 shadow-inner">
+      <input id="phone"
+       name="phone"
+       placeholder="Mobile Number"
+       pattern="[0-9]{10}"
+       maxlength="10"
+       minlength="10"
+       required
+       class="w-full px-4 py-3 rounded-xl border border-blue-300 bg-blue-700 placeholder-blue-200 text-white focus:ring-2 focus:ring-cyan-400 shadow-inner">
+     
+      <input name="govt_id"
+       placeholder="Govt. ID (Aadhaar/PAN/License)"
+       pattern="(\d{12})|([A-Z]{5}[0-9]{4}[A-Z])|([A-Z]{2}[0-9]{2}[0-9]{11,12})"
+       title="Enter a valid Aadhaar (12 digits) or PAN (ABCDE1234F) or License number (TN101234567890)"
+       required
+       class="w-full px-4 py-3 rounded-xl border border-blue-300 bg-blue-700 placeholder-blue-200 text-white focus:ring-2 focus:ring-cyan-400 shadow-inner">
+ 
+      <!-- ✅ Crib Request Option -->
+      <label class="flex items-center space-x-3 mt-2">
+        <input type="checkbox" name="crib_request" class="h-5 w-5 text-cyan-400 focus:ring-cyan-500 border-blue-300 rounded">
+        <span class="text-cyan-200 text-sm">Request a Crib/Additional Bed for Child</span>
+      </label>
+ 
+      <div>
+        <h3 class="text-xl font-semibold text-cyan-200 mt-6 mb-2">Co-customers</h3>
+        <div id="co-customers-container" class="space-y-4"></div>
+      </div>
+      {% for feature in features %}
+        <input type="hidden" name="features" value="{{ feature }}">
+      {% endfor %}
+
+      <div class="text-center pt-4">
+        <button type="button" onclick="handleConfirmBooking()" class="px-6 py-3 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 text-white font-semibold rounded-xl transition duration-300 shadow-lg">
+          Confirm Booking
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+ 
+<!-- Summary Modal -->
+<div id="summary-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+    <h2 class="text-xl font-bold text-blue-700 text-center">Review Your Booking</h2>
+    <div id="summary-content" class="text-sm text-gray-700 space-y-2"></div>
+    <div class="flex justify-between pt-4">
+      <button onclick="closeModal()" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-xl font-medium">Edit</button>
+      <button onclick="submitForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium">Final Submit</button>
+    </div>
+  </div>
+</div>
+ 
+<script>
+  function handleConfirmBooking() {
+    const form = document.getElementById('booking-form');
+ 
+    if (form.checkValidity()) {
+      // ✅ If form is valid
+      showSummary();
+    } else {
+      // ❌ If form is invalid
+      form.reportValidity(); // show default browser validation messages
+    }
+  }
+ 
+  function showSummary() {
+    const form = document.getElementById('booking-form');
+    const name = form.name.value;
+    const email = form.email.value;
+    const phone = form.phone.value;
+    const govt_id = form.govt_id.value;
+    const guestCount = {{ session.get('guest_count', 1) }};
+    const cribRequested = form.crib_request.checked;
+ 
+    let summary = `
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone}</p>
+      <p><strong>Govt ID:</strong> ${govt_id}</p>
+      <p><strong>Total Guests:</strong> ${guestCount}</p>
+    `;
+ 
+    if (cribRequested) {
+      summary += `<p><strong>Crib Request:</strong> Yes</p>`;
+    } else {
+      summary += `<p><strong>Crib Request:</strong> No</p>`;
+    }
+ 
+    if (guestCount > 1) {
+      for (let i = 1; i < guestCount; i++) {
+        const coName = form[`co_name_${i}`]?.value || '';
+        const coAge = form[`co_age_${i}`]?.value || '';
+        summary += `<p><strong>Co-customer ${i}:</strong> ${coName} (Age: ${coAge})</p>`;
+      }
+    }
+ 
+    document.getElementById('summary-content').innerHTML = summary;
+    document.getElementById('summary-modal').classList.remove('hidden');
+  }
+ 
+  function closeModal() {
+    document.getElementById('summary-modal').classList.add('hidden');
+  }
+ 
+  function submitForm() {
+    document.getElementById('booking-form').submit();
+  }
+ 
+  // Automatically add co-customers based on guest count
+  document.addEventListener('DOMContentLoaded', () => {
+    const guestCount = {{ session.get('guest_count', 1) }};
+    const container = document.getElementById('co-customers-container');
+ 
+    if (guestCount > 1) {
+      for (let i = 1; i < guestCount; i++) {
+        const div = document.createElement('div');
+        div.classList.add("grid", "grid-cols-1", "gap-2");
+        div.innerHTML = `
+          <p class="text-blue-100 font-medium">Co-customer ${i}:</p>
+          <input name="co_name_${i}" placeholder="Name" required class="w-full px-4 py-3 rounded-xl border border-blue-300 bg-blue-700 placeholder-blue-200 text-white focus:ring-2 focus:ring-cyan-400 shadow-inner">
+          <input type="number" name="co_age_${i}" placeholder="Age" required class="w-full px-4 py-3 rounded-xl border border-blue-300 bg-blue-700 placeholder-blue-200 text-white focus:ring-2 focus:ring-cyan-400 shadow-inner">
+        `;
+        container.appendChild(div);
+      }
+    }
+  });
+</script>
+ 
+{% endblock %}
+
+history.html
+{% extends "layout.html" %}
+{% block title %}My Booking History{% endblock %}
+
+{% block content %}
+<section class="min-h-screen bg-gradient-to-br from-blue-900 to-blue-700 py-12 px-4 flex justify-center items-start">
+  <div class="w-full max-w-7xl space-y-10">
+
+    <h2 class="text-3xl font-bold text-white text-center mb-8">Your Booking History</h2>
+
+    {% if history %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      {% for booking in history %}
+      <div class="bg-blue-800 bg-opacity-60 backdrop-blur-md rounded-3xl p-6 text-white shadow-2xl hover:shadow-blue-500 transition-all space-y-4">
+
+        <!-- Hotel Info -->
+        <div class="mb-4">
+          <h3 class="text-xl font-bold text-cyan-300">{{ booking[1] }}</h3> {# Hotel Name #}
+          <p class="text-sm text-blue-200">{{ booking[2] }}</p> {# Location #}
+        </div>
+
+        <!-- Booking Details -->
+        <div class="space-y-2 text-sm text-blue-100">
+          <p><span class="font-semibold text-cyan-400">Check-in:</span> {{ booking[3] }}</p>
+          <p><span class="font-semibold text-cyan-400">Check-out:</span> {{ booking[4] }}</p>
+          <p><span class="font-semibold text-green-400">Price:</span> ₹{{ booking[5] }}</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-between items-center pt-4">
+          
+          <!-- Cancel Button -->
+          <form method="POST" action="{{ url_for('cancel_booking', booking_id=booking[0]) }}">
+            {% set checkin_date = booking[3] %}
+            {% if (checkin_date - today).days >= 1 %}
+            <button type="submit" class="bg-red-400 hover:bg-red-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all">
+              Cancel
+            </button>
+            {% else %}
+            <span class="text-xs text-blue-300 italic">Cancellation Closed</span>
+            {% endif %}
+          </form>
+
+          <!-- Invoice Download -->
+          <a href="{{ url_for('invoice', booking_id=booking[0]) }}" target="_blank"
+             class="bg-cyan-400 hover:bg-cyan-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all ml-2">
+            Download
+          </a>
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center pt-20">
+      <p class="text-white text-lg">You have no bookings yet. Start exploring! 🌍</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+hotel_detail.html
+{% extends "layout.html" %}
+{% block title %}{{ hotel[1] }}{% endblock %}
+
+{% block content %}
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #5b86e5, #36d1dc);
+    color: #fff;
+  }
+
+  .hero-image {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+    background: linear-gradient(to right, #1e3c72, #2a5298); /* Fallback if image not available */
+  }
+
+  .hotel-card-overlay {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    max-width: 800px;
+    width: 100%;
+    z-index: 2;
+  }
+
+  .hotel-card h2 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #ffffff;
+  }
+
+  .hotel-card p {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    color: #d6e0ff;
+  }
+
+  .hotel-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1.2rem;
+    color: #c2d6ff;
+  }
+
+  .room-box {
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 1rem;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .room-box p {
+    margin: 0;
+    color: #e0ecff;
+    font-weight: 400;
+    font-size: 1rem;
+  }
+
+  .book-button {
+    background: #36d1dc;
+    background: linear-gradient(to right, #5b86e5, #36d1dc);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 0.6rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: 0.3s ease;
+    box-shadow: 0 0 0 rgba(255,255,255,0);
+  }
+
+  .book-button:hover {
+    background: #4a75d0;
+    box-shadow: 0 8px 16px rgba(54, 209, 220, 0.4);
+  }
+
+  @media screen and (max-width: 600px) {
+    .hotel-card-overlay {
+      padding: 1.5rem;
+    }
+
+    .room-box {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .book-button {
+      align-self: flex-end;
+    }
+  }
+</style>
+
+<div class="hero-image">
+  <div class="hotel-card-overlay" style="background-image: url('{{ url_for('static', filename='images/' + hotel[1] + '.png') }}'); background-size: cover; background-position: center;">
+    <div class="hotel-card" >
+      <h2>{{ hotel[1] }}</h2>
+      <p>{{ hotel[2] }}</p>
+      <h3>Rooms</h3>
+      {% for room in rooms %}
+      <div class="room-box">
+        <img 
+          src="{% if room[2] == 'AC' %}
+                  {{ url_for('static', filename='images/room1.png') }}
+                {% elif room[2] == 'Deluxe' %}
+                  {{ url_for('static', filename='images/room2.png') }}
+                {% elif room[2] == 'Standard' %}
+                  {{ url_for('static', filename='images/room3.png') }}
+                {% elif room[2] == 'Suite' %}
+                  {{ url_for('static', filename='images/room4.png') }}
+                {% elif room[2] == 'Family' %}
+                  {{ url_for('static', filename='images/room5.png') }}
+                {% elif room[2] == 'NON-AC' %}
+                  {{ url_for('static', filename='images/room6.png') }}
+                {% else %}
+                  {{ url_for('static', filename='images/default.png') }}
+                {% endif %}" 
+          alt="Room Image" 
+          style="width: 30%; height: 100px; border-radius: 8px; margin-bottom: 10px;">
+          <h2 class="text-2xl font-bold text-blue-600">{{ hotel[1] }}</h2> <!-- hotel name -->
+          <p class="text-sm text-gray-600">📍 Location: {{ hotel[2] }}</p>
+          
+          <p class="text-sm text-yellow-500">
+              ⭐⭐⭐⭐ (4.0/5)
+              <!-- Optional: Dynamically replace with hotel[4] if you add rating column -->
+          </p>
+          <p><strong>Type:</strong> {{ room[2] }} | <strong>Price:</strong> ₹{{ room[3] }}</p>
+        {% if room[-1] > 0 %}
+        <a href="{{ url_for('book_room', room_id=room[0]) }}{% for f in request.args.getlist('features') %}{% if loop.first %}?{% else %}&{% endif %}features={{ f }}{% endfor %}" class="book-button">
+          Book Now
+        </a>        
+        {% else %}
+            <button class="book-button opacity-50 cursor-not-allowed" disabled>No Rooms</button>
+        {% endif %}
+        
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+index.html
+{% extends "layout.html" %}
+{% block title %}All Hotels{% endblock %}
+
+{% block heroform %}
+<!-- Search/Filter Form Section -->
+<div class="flex justify-center w-full bg-gradient-to-br from-blue-900 to-blue-700 py-10 px-4">
+    <form method="get" class="flex flex-col lg:flex-row gap-6 w-full max-w-7xl p-6 rounded-3xl backdrop-blur-md bg-white/10 shadow-2xl text-white">
+
+        <!-- Filters -->
+        <div class="w-full lg:w-1/4 space-y-6">
+            <h2 class="text-lg font-bold text-white">Filters</h2>
+
+            <!-- Price Range -->
+            <div>
+                <label class="block text-sm font-semibold text-white mb-1">Price Range</label>
+                <div class="text-xs text-white mb-1">Min: ₹<span id="min-price-display">{{ request.args.get('min_price', 1000) }}</span></div>
+                <input type="range" name="min_price" id="min_price" min="1000" max="10000" step="100" 
+                    value="{{ request.args.get('min_price', 1000) }}" class="w-full accent-cyan-400">
+                    
+                <div class="text-xs text-white mt-2">Max: ₹<span id="max-price-display">{{ request.args.get('max_price', 10000) }}</span></div>
+                <input type="range" name="max_price" id="max_price" min="1000" max="10000" step="100" 
+                    value="{{ request.args.get('max_price', 10000) }}" class="w-full accent-cyan-400">
+            </div>
+
+            <script>
+                // Get the elements for the range inputs and the price displays
+                const minPriceInput = document.getElementById('min_price');
+                const maxPriceInput = document.getElementById('max_price');
+                const minPriceDisplay = document.getElementById('min-price-display');
+                const maxPriceDisplay = document.getElementById('max-price-display');
+
+                // Update the displayed value when the min price range changes
+                minPriceInput.addEventListener('input', function() {
+                    minPriceDisplay.textContent = minPriceInput.value;
+                });
+
+                // Update the displayed value when the max price range changes
+                maxPriceInput.addEventListener('input', function() {
+                    maxPriceDisplay.textContent = maxPriceInput.value;
+                });
+            </script>
+
+            <!-- Room Type -->
+            <div>
+                <label class="block text-sm font-semibold text-white mb-1">Room Type</label>
+                <select name="room_type" class="w-full p-2 rounded-lg text-black text-sm">
+                    <option value="">Any</option>
+                    <option value="AC" {% if request.args.get('room_type') == 'AC' %}selected{% endif %}>AC</option>
+                    <option value="NON-AC" {% if request.args.get('room_type') == 'NON-AC' %}selected{% endif %}>Non-AC</option>
+                </select>
+            </div>
+
+            <!-- Features -->
+            <div>
+                <label class="block text-white font-semibold text-white mb-1">Needed Access</label>
+                <div class="space-y-1 text-sm text-white">
+                    <label class="flex items-center"><input type="checkbox" name="features" value="food" {% if 'food' in request.args.getlist('features') %}checked{% endif %} class="mr-2"> Food</label>
+                    <label class="flex items-center"><input type="checkbox" name="features" value="wifi" {% if 'wifi' in request.args.getlist('features') %}checked{% endif %} class="mr-2"> Wi-Fi</label>
+                    <label class="flex items-center"><input type="checkbox" name="features" value="pool" {% if 'pool' in request.args.getlist('features') %}checked{% endif %} class="mr-2"> Pool</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Inputs -->
+        <div class="w-full lg:w-3/4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div class="flex flex-col">
+                <label for="checkin" class="text-cyan-300 mb-1">Check-in Date</label>
+                <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
+                    <span class="text-cyan-300 mr-2">📅</span>
+                    <input type="date" name="checkin" id="checkin" value="{{ request.args.get('checkin', '') }}" 
+                           class="w-full focus:outline-none bg-transparent text-white" required />
+                </div>
+            </div>
+        
+            <!-- Check-out Date -->
+            <div class="flex flex-col">
+                <label for="checkout" class="text-cyan-300 mb-1">Check-out Date</label>
+                <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
+                    <span class="text-cyan-300 mr-2">📅</span>
+                    <input type="date" name="checkout" id="checkout" value="{{ request.args.get('checkout', '') }}" 
+                           class="w-full focus:outline-none bg-transparent text-white" required />
+                </div>
+            </div>
+
+            <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10 md:col-span-2">
+                <span class="text-cyan-300 mr-2">🔍</span>
+                <input type="text" name="search" placeholder="Hotel name or location" value="{{ request.args.get('search', '') }}" class="w-full bg-transparent focus:outline-none text-white" />
+            </div>
+
+            <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
+                <span class="text-cyan-300 mr-2">👨‍👩‍👧</span>
+                <input type="number" name="adults" id="adults" placeholder="Adults" min="1" value="{{ request.args.get('adults', '') }}" class="w-full bg-transparent focus:outline-none text-white" required onchange="adjustRooms()" />
+            </div>
+
+            <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10">
+                <span class="text-cyan-300 mr-2">👶</span>
+                <input type="number" name="children" placeholder="Children" min="0"  value="{{ request.args.get('children', '') }}" class="w-full bg-transparent focus:outline-none text-white" />
+            </div>
+
+            <div class="flex items-center border border-cyan-300 rounded-lg px-3 py-2 bg-white/10 md:col-span-2">
+                <span class="text-cyan-300 mr-2">🛏️</span>
+                <input type="number" name="rooms" id="rooms" placeholder="Rooms" min="1" value="{{ request.args.get('rooms', 1) }}" class="w-full bg-transparent focus:outline-none text-white" required />
+            </div>
+
+            <div class="text-center md:col-span-2">
+                <button type="submit" class="px-8 py-2 bg-cyan-400 hover:bg-cyan-500 text-white font-semibold rounded-2xl shadow-lg transition-all">
+                    🔎 Search
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+<script>
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById("checkin").setAttribute('min', today);
+    document.getElementById("checkout").setAttribute('min', today);
+
+    function validateAndRedirect(hotelId) {
+        const checkin = document.querySelector("input[name='checkin']").value;
+        const checkout = document.querySelector("input[name='checkout']").value;
+        const adults = document.querySelector("input[name='adults']").value;
+        const rooms = document.querySelector("input[name='rooms']").value;
+
+        if (!checkin || !checkout || !adults || !rooms) {
+            alert("⚠️ Please fill check-in, check-out, adults, and rooms before selecting a hotel.");
+            return false;
+        }
+
+        if (new Date(checkout) <= new Date(checkin)) {
+            alert("⚠️ Check-out must be after check-in.");
+            return false;
+        }
+
+        window.location.href = "/hotel/" + hotelId;
+        return false;
+    }
+
+    function adjustRooms() {
+        const adults = parseInt(document.getElementById('adults').value);
+        const roomsInput = document.getElementById('rooms');
+
+        if (adults >= 4) {
+            roomsInput.min = 2;
+            if (parseInt(roomsInput.value) < 2) {
+                roomsInput.value = 2;
+            }
+        } else {
+            roomsInput.min = 1;
+            if (parseInt(roomsInput.value) < 1) {
+                roomsInput.value = 1;
+            }
+        }
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="px-4 md:px-10 py-12 bg-gradient-to-br from-blue-900 to-blue-700 min-h-screen">
+    <h2 class="text-3xl font-bold text-white mb-8 text-center">Available Hotels</h2>
+
+    {% if hotels %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        {% for hotel in hotels %}
+        <div class="bg-white/10 backdrop-blur-md rounded-3xl overflow-hidden shadow-2xl hover:shadow-cyan-400 transition-all">
+            <img src="{{ url_for('static', filename='images/' ~ hotel[1] ~ '.png') }}"
+                 alt="{{ hotel[1] }}"
+                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default.png') }}';"
+                 class="w-full h-48 object-cover">
+            <div class="p-6 space-y-2">
+                <h3 class="text-xl font-bold text-white">
+                    <a href="#" onclick="return validateAndRedirect({{ hotel[0] }});" class="hover:underline">
+                        {{ hotel[1] }}
+                    </a>
+                </h3>
+                <p class="text-cyan-100 text-sm">{{ hotel[2] }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p class="text-white text-center mt-20 text-lg">No hotels match your search criteria.</p>
+    {% endif %}
+</section>
+{% endblock %}
+
+invoice.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Booking Invoice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      #download-btn {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800 p-6">
+  <div class="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-8" id="invoice">
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-bold text-blue-700">Hotel Booking Invoice</h1>
+      <p class="text-sm text-gray-500">Your booking summary is below</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+      <p><strong>Booking ID:</strong> {{ booking.booking_id }}</p>
+      <p><strong>Hotel:</strong> {{ booking.hotel_name }}</p>
+      <p><strong>Location:</strong> 📍 {{ booking.location }}</p>
+      <p><strong>Rating:</strong>
+        {% for i in range(booking.rating|int) %}⭐{% endfor %}
+        ({{ booking.rating }}/5)
+      </p>
+      <p><strong>Guest Name:</strong> {{ booking.name }}</p>
+      <p><strong>Email:</strong> {{ booking.email }}</p>
+      <p><strong>Phone:</strong> {{ booking.phone }}</p>
+      <p><strong>Govt ID:</strong> {{ booking.govt_id }}</p>
+      <p><strong>Guests:</strong> {{ booking.guest_count }}</p>
+      <p><strong>Check-in:</strong> {{ booking.checkin }}</p>
+      <p><strong>Check-out:</strong> {{ booking.checkout }}</p>
+      <p><strong>Access Chosen:</strong>
+        {% if booking.features %}{{ booking.features }}
+        {% else %}None
+        {% endif %}
+      </p>
+    </div>
+
+    <hr class="my-4">
+
+    <h2 class="text-xl font-semibold mb-2 text-gray-700">Price Breakdown</h2>
+    <ul class="pl-5 list-disc text-sm">
+      <li>Room Total: ₹{{ price.room_total }}</li>
+      <li>Meal Total: ₹{{ price.meal_total }}</li>
+      <li>Discount: ₹{{ price.discount }}</li>
+      <li>GST (18%): ₹{{ price.gst }}</li>
+      <li class="font-bold text-green-700">Grand Total: ₹{{ price.grand_total }}</li>
+    </ul>
+
+    <div class="mt-8 text-center">
+      <button id="download-btn" onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
+        📥 Download as PDF
+      </button>
+    </div>
+  </div>
+</body>
+</html>
+
+
+layout.html
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Hotel Booking{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Tailwind + Custom Font -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Page-specific styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <style>
+      body {
+        font-family: 'Poppins', sans-serif;
+      }
+    </style>
+</head>
+<body class="min-h-screen text-white">
+
+    <!-- Header -->
+    <header class="bg-white/90 backdrop-blur sticky top-0 z-50 shadow-md px-4 py-3 flex items-center justify-between">
+        <div class="text-xl font-bold text-blue-600">Hotel Booking App</div>
+        <nav class="space-x-4 text-gray-800">
+            <a href="{{ url_for('index') }}" class="hover:text-blue-600">Home</a>
+            <a href="{{ url_for('booking_history') }}" class="hover:text-blue-600">My History</a>
+            {% if 'user_id' in session %}
+                <span class="text-sm text-gray-600">Welcome, {{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="hover:text-blue-600">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="hover:text-blue-600">Login</a>
+                <a href="{{ url_for('signup') }}" class="hover:text-blue-600">Signup</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <!-- Optional Hero -->
+    {% block heroform %}{% endblock %}
+
+    <!-- Main Page Content -->
+    <main class="w-full">
+        {% block content %}{% endblock %}
+    </main>
+    {% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <script>
+      alert("{{ messages[0] }}");
+    </script>
+  {% endif %}
+{% endwith %}
+
+</body>
+</html>
+
+login.html
+{% extends "layout.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  .auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: url("{{ url_for('static', filename='login-bg.png') }}") no-repeat center center;
+    background-size: cover;
+    position: relative;
+  }
+
+  .auth-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5); /* Dark overlay with transparency */
+    z-index: 1;
+  }
+
+  .auth-form {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    padding: 2rem;
+    border-radius: 1rem;
+    color: #fff;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    backdrop-filter: blur(5px); /* Optional: glassmorphism effect */
+  }
+
+  .auth-form h2 {
+    margin-bottom: 1.5rem;
+    color: #fff;
+  }
+
+  .auth-form input {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    margin: 0.75rem 0;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .auth-form input::placeholder {
+    color: #eee;
+  }
+
+  .auth-form button {
+    width: 100%;
+    padding: 1rem;
+    background-color: #667eea;
+    color: white;
+    font-weight: bold;
+    border: none;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  .auth-form button:hover {
+    background-color: #5a67d8;
+  }
+
+  .auth-form p {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .auth-form a {
+    color: #c3bffb;
+    text-decoration: none;
+  }
+
+  .auth-form a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<div class="auth-container">
+  <form method="post" class="auth-form">
+    <h2>Login</h2>
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+    <p>Don't have an account? <a href="{{ url_for('signup') }}">Register</a></p>
+  </form>
+</div>
+{% endblock %}
+
+signup.html
+{% extends "layout.html" %}
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  .auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: url("{{ url_for('static', filename='login-bg.png') }}") no-repeat center center;
+    background-size: cover;
+    position: relative;
+  }
+
+  .auth-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5); /* Dark overlay with transparency */
+    z-index: 1;
+  }
+
+  .auth-form {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    padding: 2rem;
+    border-radius: 1rem;
+    color: #fff;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    backdrop-filter: blur(5px);
+  }
+
+  .auth-form h2 {
+    margin-bottom: 1.5rem;
+    color: #fff;
+  }
+
+  .auth-form input {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    margin: 0.75rem 0;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .auth-form input::placeholder {
+    color: #eee;
+  }
+
+  .auth-form button {
+    width: 100%;
+    padding: 1rem;
+    background-color: #667eea;
+    color: white;
+    font-weight: bold;
+    border: none;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  .auth-form button:hover {
+    background-color: #5a67d8;
+  }
+
+  .auth-form p {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .auth-form a {
+    color: #c3bffb;
+    text-decoration: none;
+  }
+
+  .auth-form a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<div class="auth-container">
+  <form method="post" class="auth-form" onsubmit="return validateAge()">
+    <h2>Sign Up</h2>
+    <input type="text" name="username" placeholder="Username" required>
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <label for="dob">Date of Birth</label>
+    <input type="date" id="dob" name="dob" required>
+    <button type="submit">Register</button>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
+  </form>
+</div>
+
+<script>
+  function validateAge() {
+    const dobInput = document.getElementById('dob');
+    if (!dobInput.value) {
+      alert("Please enter your date of birth.");
+      return false;
+    }
+
+    const dob = new Date(dobInput.value);
+    const today = new Date();
+
+    // Calculate age
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    const dayDiff = today.getDate() - dob.getDate();
+
+    // Adjust age if birthday hasn't occurred this year
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+      age--;
+    }
+
+    // Check age restriction
+    if (age < 18) {
+      alert("You must be at least 18 years old to register.");
+      return false;
+    }
+
+    return true; // Allow form submission
+  }
+</script>
+
+{% endblock %}
+
+pdf_generator.py
+from fpdf import FPDF
+import os
+
+def generate_invoice_pdf(booking, booking_id):
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt="Hotel Booking Invoice", ln=True, align="C")
+        pdf.ln(10)
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(200, 10, txt=f"Booking ID: {booking_id}", ln=True)
+        pdf.cell(200, 10, txt=f"Customer: {booking['name']}", ln=True)
+        pdf.cell(200, 10, txt=f"Email: {booking['email']}", ln=True)
+        pdf.cell(200, 10, txt=f"Phone: {booking['phone']}", ln=True)
+        pdf.cell(200, 10, txt=f"Govt ID: {booking['govt_id']}", ln=True)
+        pdf.cell(200, 10, txt=f"Hotel: {booking['hotel_name']}", ln=True)
+        pdf.cell(200, 10, txt=f"Location: {booking['location']}", ln=True)
+        pdf.cell(200, 10, txt=f"Rating: {'★' * booking.get('rating', 4)}", ln=True)  # 4 stars default
+        pdf.cell(200, 10, txt=f"Guests: {booking['guest_count']}", ln=True)
+        pdf.cell(200, 10, txt=f"Check-in: {booking['checkin']}", ln=True)
+        pdf.cell(200, 10, txt=f"Check-out: {booking['checkout']}", ln=True)
+
+        if booking.get("features"):
+            pdf.cell(200, 10, txt=f"Access Chosen: {booking['features']}", ln=True)
+
+        pdf.ln(10)
+        pdf.cell(200, 10, txt="--- Billing Summary ---", ln=True)
+        pdf.cell(200, 10, txt=f"Room Total: ₹{booking['room_total']}", ln=True)
+        pdf.cell(200, 10, txt=f"Meal Total: ₹{booking['meal_total']}", ln=True)
+        pdf.cell(200, 10, txt=f"Discount: ₹{booking['discount']}", ln=True)
+        pdf.cell(200, 10, txt=f"GST (18%): ₹{booking['gst']}", ln=True)
+        pdf.cell(200, 10, txt=f"Grand Total: ₹{booking['grand_total']}", ln=True)
+
+        # Save
+        pdf_dir = "invoices"
+        if not os.path.exists(pdf_dir):
+            os.makedirs(pdf_dir)
+        pdf_path = os.path.join(pdf_dir, f"invoice_{booking_id}.pdf")
+        pdf.output(pdf_path)
+
+        return pdf_path if os.path.exists(pdf_path) else None
+    except Exception as e:
+        print(f"PDF generation error for booking ID {booking_id}: {e}")
+        return None
+
+app.py
+from flask import Flask, render_template, request, redirect, url_for, send_file, abort
+from models.db import get_connection
+from utils.pdf_generator import generate_invoice_pdf
+import os
+from flask import session
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime,date, timedelta
+from flask import flash, redirect, url_for
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+
+@app.route('/')
+def index():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE rooms
+        SET available = TRUE
+        WHERE id IN (
+            SELECT room_id
+            FROM bookings
+            WHERE checkout < CURDATE()
+        )
+    """)
+    conn.commit()
+
+    search = request.args.get('search')
+    checkin = request.args.get('checkin')
+    checkout = request.args.get('checkout')
+    adults = request.args.get('adults', type=int)
+    children = request.args.get('children', type=int)
+    rooms = request.args.get('rooms', type=int)
+    room_type = request.args.get('room_temp')
+    min_price = request.args.get('min_price', type=float)
+    max_price = request.args.get('max_price', type=float)
+    features = request.args.getlist('features')
+
+    if checkin and checkout:
+        session['checkin'] = checkin
+        session['checkout'] = checkout
+
+    total_guests = (adults or 0) + (children or 0)
+
+    if adults is not None:
+        if adults < 1:
+            flash("At least one adult is required for booking.")
+            return redirect(url_for('index'))
+        if adults > 5:
+            flash("Maximum 5 adults allowed per room.")
+            return redirect(url_for('index'))
+
+    if total_guests > 5:
+        flash("Total guests (adults + children) cannot exceed 5 per room.")
+        return redirect(url_for('index'))
+
+    max_guests_per_room = 5
+    
+    if rooms is not None:
+        if total_guests >= (rooms * max_guests_per_room):
+            flash("Insufficient room capacity for the number of guests. Please select more rooms.")
+            return redirect(url_for('index'))
+            
+    session['guest_count'] = total_guests
+    session['adults'] = adults
+    session['children'] = children
+    session['rooms'] = rooms  # ✅ Added this line
+
+    query = "SELECT DISTINCT h.* FROM hotels h JOIN rooms r ON h.id = r.hotel_id"
+    filters = []
+    params = []
+
+    if search:
+        filters.append("(h.name LIKE %s OR h.location LIKE %s)")
+        params.extend([f"%{search}%", f"%{search}%"])
+    if total_guests:
+        filters.append("r.guest_capacity >= %s")
+        filters.append("r.guest_capacity <= 5")
+        params.append(total_guests)
+    if rooms:
+        filters.append("r.available = TRUE")
+    if room_type:
+        filters.append("r.room_type = %s")
+        params.append(room_type)
+    if min_price:
+        filters.append("r.price >= %s")
+        params.append(min_price)
+    if max_price:
+        filters.append("r.price <= %s")
+        params.append(max_price)
+    if features:
+        for feature in features:
+            filters.append("r.features LIKE %s")
+            params.append(f"%{feature}%")
+
+    if filters:
+        query += " WHERE " + " AND ".join(filters)
+
+    cursor.execute(query, tuple(params))
+    hotels = cursor.fetchall()
+    conn.close()
+
+    return render_template('index.html', hotels=hotels)
+
+@app.route('/hotel/<int:hotel_id>')
+def hotel_detail(hotel_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    checkin = session.get('checkin')
+    checkout = session.get('checkout')
+
+    if not checkin or not checkout:
+        flash("Please select check-in and check-out dates first!")
+        return redirect(url_for('index'))
+
+    cursor.execute("SELECT * FROM hotels WHERE id=%s", (hotel_id,))
+    hotel = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT r.*, 
+            (r.total_rooms - IFNULL((
+                SELECT SUM(b.rooms_booked)
+                FROM bookings b
+                WHERE b.room_id = r.id
+                AND NOT (b.checkout <= %s OR b.checkin >= %s)
+            ), 0)) AS available_rooms_today
+        FROM rooms r
+        WHERE r.hotel_id = %s
+    """, (checkin, checkout, hotel_id))
+    rooms = cursor.fetchall()
+
+    features = request.args.getlist("features")  
+    conn.close()
+
+    return render_template('hotel_detail.html', hotel=hotel, rooms=rooms, features=features)
+
+@app.route('/book/<int:room_id>', methods=['GET', 'POST'])
+def book_room(room_id):
+    if 'user_id' not in session:
+        session['next'] = url_for('book_room', room_id=room_id)
+        return redirect(url_for('login'))
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # ✅ Get hotel_id and total_rooms related to this room
+    cursor.execute("SELECT hotel_id, total_rooms FROM rooms WHERE id = %s", (room_id,))
+    room_info = cursor.fetchone()
+
+    if not room_info:
+        conn.close()
+        flash("Room not found.")
+        return redirect(url_for('index'))
+
+    hotel_id = room_info[0]
+    total_rooms = room_info[1]
+
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        phone = request.form['phone']
+        govt_id = request.form['govt_id']
+        crib_request = bool(request.form.get('crib_request'))
+        selected_features = request.form.getlist('features')
+        features_string = ",".join(selected_features) if selected_features else "None"
+        
+        checkin = session.get('checkin')
+        checkout = session.get('checkout')
+        guest_count = session.get('guest_count', 1)
+        rooms_requested = session.get('rooms', 1)
+
+        try:
+            checkin_date = datetime.strptime(checkin, "%Y-%m-%d")
+            checkout_date = datetime.strptime(checkout, "%Y-%m-%d")
+            if checkout_date <= checkin_date:
+                conn.close()
+                return "Error: Check-out date must be after check-in date.", 400
+        except Exception:
+            conn.close()
+            return "Error: Invalid check-in/check-out format", 400
+
+        cursor.execute("""
+            SELECT SUM(rooms_booked) FROM bookings
+            WHERE room_id = %s
+            AND NOT (checkout <= %s OR checkin >= %s)
+        """, (room_id, checkin, checkout))
+        booked_rooms = cursor.fetchone()[0] or 0
+
+        if (booked_rooms + rooms_requested) > total_rooms:
+            conn.close()
+            flash("❌ Sorry, this room is currently unavailable for booking on selected dates!")
+            return redirect(url_for('hotel_detail', hotel_id=hotel_id))
+
+        cursor.execute("""
+        INSERT INTO bookings (room_id, name, email, phone, guest_count,govt_id, crib_request, checkin, checkout,user_id, rooms_booked, features)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (room_id, name, email, phone, guest_count,govt_id, crib_request, checkin, checkout,session['user_id'], rooms_requested, features_string))
+        
+        booking_id = cursor.lastrowid
+
+        for i in range(1, int(guest_count)):
+            co_name = request.form.get(f'co_name_{i}')
+            co_age = request.form.get(f'co_age_{i}')
+            if co_name and co_age:
+                cursor.execute(
+                    "INSERT INTO co_customers (booking_id, name, age) VALUES (%s, %s, %s)",
+                    (booking_id, co_name, co_age)
+                )
+
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for('invoice', booking_id=booking_id))
+
+    features = request.args.getlist("features")
+    conn.close()
+
+    return render_template('book.html', room_id=room_id, features=features)
+
+
+@app.route('/download_invoice/<int:booking_id>')
+def download_invoice(booking_id):
+    # (Re)fetch booking info (similar query as above)
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT b.name, b.email, b.phone, b.guest_count,
+               b.checkin, b.checkout, b.govt_id,
+               r.price, h.name
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        JOIN hotels h ON r.hotel_id = h.id
+        WHERE b.id = %s
+    """, (booking_id,))
+    booking = cursor.fetchone()
+    conn.close()
+
+    if not booking:
+        return abort(404, description="Booking not found")
+
+    # Generate the PDF file (using fpdf or any library)
+    pdf_path = generate_invoice_pdf(booking, booking_id)
+    if not pdf_path or not os.path.exists(pdf_path):
+        return "Error generating invoice PDF", 500
+
+    # Send the PDF as attachment
+    # The as_attachment flag forces a download prompt (Download).
+    return send_file(pdf_path, as_attachment=True,
+                     download_name=f"invoice_{booking_id}.pdf",
+                     mimetype='application/pdf')
+
+
+@app.route('/invoice/<int:booking_id>')
+def invoice(booking_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT b.name, b.email, b.phone, b.guest_count, b.checkin, b.checkout, 
+               b.govt_id, b.features, r.price, h.name, h.location
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        JOIN hotels h ON r.hotel_id = h.id
+        WHERE b.id = %s
+    """, (booking_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return "Booking not found", 404
+
+    (name, email, phone, guests, checkin, checkout, govt_id, features, price_per_night, hotel_name, location) = row
+
+    nights = (checkout - checkin).days or 1
+    room_total = float(price_per_night) * nights
+    meal_total = float(guests) * 1000 * nights
+    discount = 0
+    if nights > 7:
+        discount = 0.1 * (room_total + meal_total)
+    elif nights > 3:
+        discount = 0.05 * (room_total + meal_total)
+    
+    subtotal = room_total + meal_total - discount
+    gst = subtotal * 0.18
+    grand_total = subtotal + gst
+    
+
+    booking_data = {
+        'booking_id': booking_id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'guest_count': guests,
+        'checkin': checkin,
+        'checkout': checkout,
+        'govt_id': govt_id,
+        'features': features,
+        'hotel_name': hotel_name,
+        'location': location,
+        'rating': 4,  # static for now
+        'room_total': room_total,
+        'meal_total': meal_total,
+        'discount': discount,
+        'gst': gst,
+        'grand_total': grand_total
+    }
+    price_data = {
+    'nights': nights,
+    'price_per_night': float(price_per_night),
+    'room_total': room_total,
+    'meal_plan': 'Full-board',
+    'meal_total': meal_total,
+    'discount': discount,
+    'gst': gst,
+    'grand_total': grand_total
+    }
+
+    return render_template("invoice.html", booking=booking_data, price=price_data)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = generate_password_hash(request.form['password'])
+
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", 
+                       (username, email, password))
+        conn.commit()
+        conn.close()
+        flash("Signup Successful! Please login.", "success")
+        return redirect(url_for('login'))
+
+    return render_template('signup.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, password FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user and check_password_hash(user[2], password):
+            session['user_id'] = user[0]
+            session['username'] = user[1]
+
+            # ✅ Redirect to next page if available
+            next_page = session.pop('next', None)
+            if next_page:
+                return redirect(next_page)
+            else:
+                return redirect(url_for('index'))
+
+        flash("Invalid email or password!", "error")
+        return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+@app.route('/history')
+def booking_history():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT b.id, h.name, h.location, b.checkin, b.checkout, r.price
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        JOIN hotels h ON r.hotel_id = h.id
+        WHERE b.user_id = %s
+        ORDER BY b.checkin DESC
+    """, (user_id,))
+    history = cursor.fetchall()
+    conn.close()
+
+    # ✅ Pass 'timedelta' to template
+    return render_template('history.html', history=history, today=date.today(), timedelta=timedelta)
+
+@app.route('/cancel/<int:booking_id>', methods=['POST'])
+def cancel_booking(booking_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT b.checkin, b.user_id, b.room_id
+        FROM bookings b
+        WHERE b.id = %s
+    """, (booking_id,))
+    booking = cursor.fetchone()
+
+    if not booking:
+        flash("Booking not found.")
+        conn.close()
+        return redirect(url_for('booking_history'))
+
+    checkin_date = booking[0]
+    booking_user_id = booking[1]
+    room_id = booking[2]
+
+    if booking_user_id != session['user_id']:
+        flash("You are not authorized to cancel this booking.")
+        conn.close()
+        return redirect(url_for('booking_history'))
+
+    if checkin_date - datetime.today().date() < timedelta(days=1):
+        flash("Cancellation not allowed within 24 hours of check-in.")
+        conn.close()
+        return redirect(url_for('booking_history'))
+
+    # Delete co-customers
+    cursor.execute("DELETE FROM co_customers WHERE booking_id = %s", (booking_id,))
+
+    # Delete booking
+    cursor.execute("DELETE FROM bookings WHERE id = %s", (booking_id,))
+
+    # Optionally set room available (if your logic marks it unavailable)
+    cursor.execute("UPDATE rooms SET available = TRUE WHERE id = %s", (room_id,))
+
+    conn.commit()
+    conn.close()
+
+    flash("Booking cancelled successfully.")
+    return redirect(url_for('booking_history'))
+    
+if __name__ == '__main__':
+    app.run(debug=True)
+config.py
+DB_CONFIG = {
+    'host': 'hoteldb.cf6me2usaddu.ap-south-1.rds.amazonaws.com',
+    'user': 'admin',
+    'password': 'Muthupattan1403',
+    'db': 'poojudb'
+}

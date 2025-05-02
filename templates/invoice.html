@@ -1,119 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Invoice</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Nunito', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f0f8ff;
-            color: #333;
-        }
-        .container {
-            max-width: 700px;
-            margin: 40px auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(to right, #00c6ff, #0072ff);
-            color: white;
-            padding: 24px 32px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            letter-spacing: 1px;
-        }
-        .details {
-            padding: 32px;
-        }
-        .details h2 {
-            margin-top: 0;
-            font-size: 22px;
-            color: #0072ff;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        .row {
-            margin: 12px 0;
-            display: flex;
-            justify-content: space-between;
-        }
-        .label {
-            font-weight: 600;
-            color: #555;
-        }
-        .footer {
-            background-color: #f7faff;
-            padding: 16px 32px;
-            text-align: center;
-            font-size: 14px;
-            color: #777;
-        }
-        .download-btn {
-            display: block;
-            width: fit-content;
-            margin: 30px auto 10px;
-            padding: 10px 20px;
-            background: linear-gradient(to right, #00c6ff, #0072ff);
-            color: white;
-            font-weight: bold;
-            text-decoration: none;
-            border-radius: 10px;
-            transition: 0.3s ease;
-        }
-        .download-btn:hover {
-            background: linear-gradient(to right, #0072ff, #00c6ff);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Booking Invoice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      #download-btn {
+        display: none;
+      }
+    }
+  </style>
 </head>
-<body>
-
-<div class="container">
-    <div class="header">
-        <h1>Hotel Booking Invoice</h1>
+<body class="bg-gray-100 font-sans text-gray-800 p-6">
+  <div class="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-8" id="invoice">
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-bold text-blue-700">Hotel Booking Invoice</h1>
+      <p class="text-sm text-gray-500">Your booking summary is below</p>
     </div>
 
-    <div class="details">
-        <h2>Booking Details</h2>
-        <div class="row"><span class="label">Name:</span> <span>{{ booking.name }}</span></div>
-        <div class="row"><span class="label">Email:</span> <span>{{ booking.email }}</span></div>
-        <div class="row"><span class="label">Phone:</span> <span>{{ booking.phone }}</span></div>
-        <div class="row"><span class="label">Govt. ID:</span> <span>{{ booking.govt_id }}</span></div>
-        <div class="row"><span class="label">Guests:</span> <span>{{ booking.guest_count }}</span></div>
-        <div class="row"><span class="label">Needed Access:</span> <span>{{ booking.features }}</span></div>
-
-        <h2>Hotel Info</h2>
-        <div class="row"><span class="label">Hotel Name:</span> <span>{{ booking.hotel_name }}</span></div>
-        <div class="row"><span class="label">Check-in:</span> <span>{{ booking.checkin }}</span></div>
-        <div class="row"><span class="label">Check-out:</span> <span>{{ booking.checkout }}</span></div>
-        <div class="row"><span class="label">Nights:</span> <span>{{ price.nights }}</span></div>
-
-        <h2>Pricing Breakdown</h2>
-        <div class="row"><span class="label">Room Price ({{ price.price_per_night }} × {{ price.nights }} nights):</span> <span>₹{{ price.room_total }}</span></div>
-        <div class="row"><span class="label">Meal Plan:</span> <span>{{ price.meal_plan }}</span></div>
-        <div class="row"><span class="label">Meal Charges:</span> <span>₹{{ price.meal_total }}</span></div>
-        <div class="row"><span class="label">Discount:</span> <span>- ₹{{ price.discount }}</span></div>
-        <div class="row"><span class="label">GST (18%):</span> <span>₹{{ price.gst }}</span></div>
-        <div class="row font-bold"><span class="label">Grand Total:</span> <span>₹{{ price.grand_total }}</span></div>
+    <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+      <p><strong>Booking ID:</strong> {{ booking.booking_id }}</p>
+      <p><strong>Hotel:</strong> {{ booking.hotel_name }}</p>
+      <p><strong>Location:</strong> 📍 {{ booking.location }}</p>
+      <p><strong>Rating:</strong>
+        {% for i in range(booking.rating|int) %}⭐{% endfor %}
+        ({{ booking.rating }}/5)
+      </p>
+      <p><strong>Guest Name:</strong> {{ booking.name }}</p>
+      <p><strong>Email:</strong> {{ booking.email }}</p>
+      <p><strong>Phone:</strong> {{ booking.phone }}</p>
+      <p><strong>Govt ID:</strong> {{ booking.govt_id }}</p>
+      <p><strong>Guests:</strong> {{ booking.guest_count }}</p>
+      <p><strong>Check-in:</strong> {{ booking.checkin }}</p>
+      <p><strong>Check-out:</strong> {{ booking.checkout }}</p>
+      <p><strong>Access Chosen:</strong>
+        {% if booking.features %}{{ booking.features }}
+        {% else %}None
+        {% endif %}
+      </p>
     </div>
 
-    <a href="{{ url_for('download_invoice', booking_id=booking.booking_id) }}" class="download-btn">
-        Download Invoice PDF
-    </a>
+    <hr class="my-4">
 
-    <div class="footer">
-        Thank you for booking with us. We hope you have a pleasant stay!
+    <h2 class="text-xl font-semibold mb-2 text-gray-700">Price Breakdown</h2>
+    <ul class="pl-5 list-disc text-sm">
+      <li>Room Total: ₹{{ price.room_total }}</li>
+      <li>Meal Total: ₹{{ price.meal_total }}</li>
+      <li>Discount: ₹{{ price.discount }}</li>
+      <li>GST (18%): ₹{{ price.gst }}</li>
+      <li class="font-bold text-green-700">Grand Total: ₹{{ price.grand_total }}</li>
+    </ul>
+
+    <div class="mt-8 text-center">
+      <button id="download-btn" onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
+        📥 Download as PDF
+      </button>
     </div>
-</div>
-
+  </div>
 </body>
 </html>
-
