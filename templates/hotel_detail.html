@@ -3,73 +3,87 @@
 
 {% block content %}
 <style>
-  body, html {
+  body {
     margin: 0;
-    padding: 0;
     font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #5b86e5, #36d1dc);
+    background-image: url('{{ url_for('static', filename='images/hotel1.png') }}');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: scroll; /* ✅ allows scrolling with content */
     color: #fff;
   }
 
-  .hero-image {
+  .hero-wrapper {
+    padding: 4rem 2rem;
     display: flex;
     justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 2rem;
-    background: linear-gradient(to right, #1e3c72, #2a5298); /* Fallback if image not available */
   }
 
   .hotel-card-overlay {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 2.5rem;
+    background: rgba(255, 255, 255, 0.07);
+    padding: 2rem;
     border-radius: 1.5rem;
-    backdrop-filter: blur(15px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    max-width: 800px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
     width: 100%;
-    z-index: 2;
+    max-width: 750px;
+    margin: auto;
   }
 
   .hotel-card h2 {
     font-size: 2rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
     color: #ffffff;
   }
 
   .hotel-card p {
     font-size: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     color: #d6e0ff;
   }
 
   .hotel-card h3 {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     margin-bottom: 1.2rem;
     color: #c2d6ff;
   }
 
   .room-box {
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 1rem;
-    padding: 1rem 1.5rem;
+    padding: 1rem;
     margin-bottom: 1.2rem;
     display: flex;
-    justify-content: space-between;
+    gap: 1rem;
     align-items: center;
     backdrop-filter: blur(10px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
-  .room-box p {
-    margin: 0;
+  .room-box img {
+    width: 120px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+
+  .room-details {
+    flex: 1;
+  }
+
+  .room-details h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.2rem;
+    font-weight: 600;
+  }
+
+  .room-details p {
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
     color: #e0ecff;
-    font-weight: 400;
-    font-size: 1rem;
   }
 
   .book-button {
-    background: #36d1dc;
     background: linear-gradient(to right, #5b86e5, #36d1dc);
     color: white;
     padding: 0.6rem 1.2rem;
@@ -78,7 +92,7 @@
     font-weight: 500;
     text-decoration: none;
     transition: 0.3s ease;
-    box-shadow: 0 0 0 rgba(255,255,255,0);
+    white-space: nowrap;
   }
 
   .book-button:hover {
@@ -86,29 +100,38 @@
     box-shadow: 0 8px 16px rgba(54, 209, 220, 0.4);
   }
 
-  @media screen and (max-width: 600px) {
-    .hotel-card-overlay {
-      padding: 1.5rem;
-    }
+  .no-room {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: gray;
+  }
 
+  @media (max-width: 640px) {
     .room-box {
       flex-direction: column;
       align-items: flex-start;
-      gap: 0.5rem;
+    }
+
+    .room-box img {
+      width: 100%;
+      height: auto;
     }
 
     .book-button {
-      align-self: flex-end;
+      width: 100%;
+      text-align: center;
+      margin-top: 0.5rem;
     }
   }
 </style>
 
-<div class="hero-image">
-  <div class="hotel-card-overlay" style="background-image: url('{{ url_for('static', filename='images/' + hotel[1] + '.png') }}'); background-size: cover; background-position: center;">
-    <div class="hotel-card" >
+<div class="hero-wrapper">
+  <div class="hotel-card-overlay">
+    <div class="hotel-card">
       <h2>{{ hotel[1] }}</h2>
       <p>{{ hotel[2] }}</p>
       <h3>Rooms</h3>
+
       {% for room in rooms %}
       <div class="room-box">
         <img 
@@ -127,24 +150,20 @@
                 {% else %}
                   {{ url_for('static', filename='images/default.png') }}
                 {% endif %}" 
-          alt="Room Image" 
-          style="width: 30%; height: 100px; border-radius: 8px; margin-bottom: 10px;">
-          <h2 class="text-2xl font-bold text-blue-600">{{ hotel[1] }}</h2> <!-- hotel name -->
-          <p class="text-sm text-gray-600">📍 Location: {{ hotel[2] }}</p>
-          
-          <p class="text-sm text-yellow-500">
-              ⭐⭐⭐⭐ (4.0/5)
-              <!-- Optional: Dynamically replace with hotel[4] if you add rating column -->
-          </p>
+          alt="Room Image">
+        <div class="room-details">
+          <h2>{{ hotel[1] }}</h2>
+          <p>📍 Location: {{ hotel[2] }}</p>
+          <p>⭐ (4.0/5)</p>
           <p><strong>Type:</strong> {{ room[2] }} | <strong>Price:</strong> ₹{{ room[3] }}</p>
+        </div>
         {% if room[-1] > 0 %}
-        <a href="{{ url_for('book_room', room_id=room[0]) }}{% for f in request.args.getlist('features') %}{% if loop.first %}?{% else %}&{% endif %}features={{ f }}{% endfor %}" class="book-button">
-          Book Now
-        </a>        
+          <a href="{{ url_for('book_room', room_id=room[0]) }}{% for f in request.args.getlist('features') %}{% if loop.first %}?{% else %}&{% endif %}features={{ f }}{% endfor %}" class="book-button">
+            Book Now
+          </a>
         {% else %}
-            <button class="book-button opacity-50 cursor-not-allowed" disabled>No Rooms</button>
+          <button class="book-button no-room" disabled>No Rooms</button>
         {% endif %}
-        
       </div>
       {% endfor %}
     </div>

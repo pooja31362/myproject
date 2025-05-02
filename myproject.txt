@@ -160,62 +160,39 @@ book.html
 
 history.html
 {% extends "layout.html" %}
-{% block title %}My Booking History{% endblock %}
+{% block title %}Booking History{% endblock %}
 
 {% block content %}
-<section class="min-h-screen bg-gradient-to-br from-blue-900 to-blue-700 py-12 px-4 flex justify-center items-start">
-  <div class="w-full max-w-7xl space-y-10">
-
-    <h2 class="text-3xl font-bold text-white text-center mb-8">Your Booking History</h2>
+<section class="px-4 py-10 min-h-screen bg-gradient-to-br from-blue-900 to-blue-700">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-3xl font-bold text-white mb-8 text-center">Your Booking History</h2>
 
     {% if history %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-      {% for booking in history %}
-      <div class="bg-blue-800 bg-opacity-60 backdrop-blur-md rounded-3xl p-6 text-white shadow-2xl hover:shadow-blue-500 transition-all space-y-4">
+      <div class="space-y-6">
+        {% for booking in history %}
+          <div class="bg-white/10 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl">
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="text-xl font-semibold">{{ booking['hotel_name'] }} - ₹{{ booking['price'] }}</h3>
+              {% if booking['status'] == 'Cancelled' %}
+                <span class="text-red-400 font-bold">Cancelled</span>
+              {% endif %}
+            </div>
+            <p><strong>Location:</strong> {{ booking['location'] }}</p>
+            <p><strong>Check-in:</strong> {{ booking['checkin'] }} | <strong>Check-out:</strong> {{ booking['checkout'] }}</p>
 
-        <!-- Hotel Info -->
-        <div class="mb-4">
-          <h3 class="text-xl font-bold text-cyan-300">{{ booking[1] }}</h3> {# Hotel Name #}
-          <p class="text-sm text-blue-200">{{ booking[2] }}</p> {# Location #}
-        </div>
-
-        <!-- Booking Details -->
-        <div class="space-y-2 text-sm text-blue-100">
-          <p><span class="font-semibold text-cyan-400">Check-in:</span> {{ booking[3] }}</p>
-          <p><span class="font-semibold text-cyan-400">Check-out:</span> {{ booking[4] }}</p>
-          <p><span class="font-semibold text-green-400">Price:</span> ₹{{ booking[5] }}</p>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-between items-center pt-4">
-          
-          <!-- Cancel Button -->
-          <form method="POST" action="{{ url_for('cancel_booking', booking_id=booking[0]) }}">
-            {% set checkin_date = booking[3] %}
-            {% if (checkin_date - today).days >= 1 %}
-            <button type="submit" class="bg-red-400 hover:bg-red-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all">
-              Cancel
-            </button>
-            {% else %}
-            <span class="text-xs text-blue-300 italic">Cancellation Closed</span>
-            {% endif %}
-          </form>
-
-          <!-- Invoice Download -->
-          <a href="{{ url_for('invoice', booking_id=booking[0]) }}" target="_blank"
-             class="bg-cyan-400 hover:bg-cyan-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all ml-2">
-            Download
-          </a>
-        </div>
-
+            <div class="flex justify-end mt-4">
+              {% if booking['status'] != 'Cancelled' and booking['checkin'] > today %}
+              <form method="POST" action="{{ url_for('cancel_booking', booking_id=booking['id']) }}">
+                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg">Cancel Booking</button>
+              </form>
+              {% endif %}
+              <a href="{{ url_for('invoice', booking_id=booking['id']) }}" class="ml-4 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-4 py-2 rounded-lg">View Invoice</a>
+            </div>
+          </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-
     {% else %}
-    <div class="text-center pt-20">
-      <p class="text-white text-lg">You have no bookings yet. Start exploring! 🌍</p>
-    </div>
+      <p class="text-white text-center text-lg">You have no bookings yet.</p>
     {% endif %}
   </div>
 </section>
@@ -375,6 +352,7 @@ hotel_detail.html
   </div>
 </div>
 {% endblock %}
+
 
 
 index.html
@@ -653,7 +631,7 @@ layout.html
 
     <!-- Header -->
     <header class="bg-white/90 backdrop-blur sticky top-0 z-50 shadow-md px-4 py-3 flex items-center justify-between">
-        <div class="text-xl font-bold text-blue-600">Hotel Booking App</div>
+        <div class="text-xl font-bold text-blue-600">Hotel Booking</div>
         <nav class="space-x-4 text-gray-800">
             <a href="{{ url_for('index') }}" class="hover:text-blue-600">Home</a>
             <a href="{{ url_for('booking_history') }}" class="hover:text-blue-600">My History</a>
@@ -989,6 +967,7 @@ from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime,date, timedelta
 from flask import flash, redirect, url_for
+from decimal import Decimal
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -1151,7 +1130,7 @@ def book_room(room_id):
         checkin = session.get('checkin')
         checkout = session.get('checkout')
         guest_count = session.get('guest_count', 1)
-        rooms_requested = session.get('rooms', 1)
+        rooms_requested = int(session.get('rooms', 1) or 1)
 
         try:
             checkin_date = datetime.strptime(checkin, "%Y-%m-%d")
@@ -1168,7 +1147,7 @@ def book_room(room_id):
             WHERE room_id = %s
             AND NOT (checkout <= %s OR checkin >= %s)
         """, (room_id, checkin, checkout))
-        booked_rooms = cursor.fetchone()[0] or 0
+        booked_rooms = int(cursor.fetchone()[0] or 0)
 
         if (booked_rooms + rooms_requested) > total_rooms:
             conn.close()
@@ -1360,19 +1339,54 @@ def booking_history():
     user_id = session['user_id']
     conn = get_connection()
     cursor = conn.cursor()
+
     cursor.execute("""
-        SELECT b.id, h.name, h.location, b.checkin, b.checkout, r.price
+        SELECT b.id, h.name, h.location, b.checkin, b.checkout, r.price, b.status
         FROM bookings b
         JOIN rooms r ON b.room_id = r.id
         JOIN hotels h ON r.hotel_id = h.id
         WHERE b.user_id = %s
         ORDER BY b.checkin DESC
     """, (user_id,))
-    history = cursor.fetchall()
-    conn.close()
 
-    # ✅ Pass 'timedelta' to template
-    return render_template('history.html', history=history, today=date.today(), timedelta=timedelta)
+    rows = cursor.fetchall()
+    history = []
+    today = date.today()
+
+    for row in rows:
+        booking_id, hotel_name, location, checkin, checkout, price, status = row
+        nights = (checkout - checkin).days
+        if nights < 1:
+            nights = 1
+
+        meal_price_per_person_per_day = Decimal(1000)
+        guest_count = 1  # default if not stored, or retrieve actual guest count if needed
+        room_total = price * nights
+        meal_total = guest_count * meal_price_per_person_per_day * nights
+
+        discount_percent = 0
+        if nights > 7:
+            discount_percent = 10
+        elif nights > 3:
+            discount_percent = 5
+
+        discount_amount = (room_total + meal_total) * Decimal(discount_percent) / Decimal(100)
+        subtotal = room_total + meal_total - discount_amount
+        gst = subtotal * Decimal('0.18')
+        grand_total = subtotal + gst
+
+        history.append({
+            'id': booking_id,
+            'hotel_name': hotel_name,
+            'location': location,
+            'checkin': checkin,
+            'checkout': checkout,
+            'price': round(grand_total, 2),
+            'status': status
+        })
+
+    conn.close()
+    return render_template('history.html', history=history, today=today, timedelta=timedelta)
 
 @app.route('/cancel/<int:booking_id>', methods=['POST'])
 def cancel_booking(booking_id):
@@ -1393,9 +1407,7 @@ def cancel_booking(booking_id):
         conn.close()
         return redirect(url_for('booking_history'))
 
-    checkin_date = booking[0]
-    booking_user_id = booking[1]
-    room_id = booking[2]
+    checkin_date, booking_user_id, room_id = booking
 
     if booking_user_id != session['user_id']:
         flash("You are not authorized to cancel this booking.")
@@ -1407,23 +1419,16 @@ def cancel_booking(booking_id):
         conn.close()
         return redirect(url_for('booking_history'))
 
-    # Delete co-customers
-    cursor.execute("DELETE FROM co_customers WHERE booking_id = %s", (booking_id,))
-
-    # Delete booking
-    cursor.execute("DELETE FROM bookings WHERE id = %s", (booking_id,))
-
-    # Optionally set room available (if your logic marks it unavailable)
-    cursor.execute("UPDATE rooms SET available = TRUE WHERE id = %s", (room_id,))
-
+    cursor.execute("UPDATE bookings SET status = 'Cancelled' WHERE id = %s", (booking_id,))
     conn.commit()
     conn.close()
 
-    flash("Booking cancelled successfully.")
+    flash("Booking marked as cancelled.")
     return redirect(url_for('booking_history'))
-    
+
 if __name__ == '__main__':
     app.run(debug=True)
+
 config.py
 DB_CONFIG = {
     'host': 'hoteldb.cf6me2usaddu.ap-south-1.rds.amazonaws.com',
